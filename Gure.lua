@@ -1,7 +1,9 @@
 -- ==========================================
--- GURE.LUA - WINDUI INTERFACE
+-- GURE.LUA - KEREN HUB (BARISTA UI LOADER)
 -- ==========================================
-local GORU_URL = "https://raw.githubusercontent.com/nytui/Goru/refs/heads/main/Goru.lua"
+
+-- 1. Load WindUI Library Resmi (Latest Version)
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
 getgenv().KerenBaristaState = getgenv().KerenBaristaState or {
     CurrentStage = "NO_GUI",
@@ -15,52 +17,7 @@ getgenv().KerenBaristaState = getgenv().KerenBaristaState or {
 
 local State = getgenv().KerenBaristaState
 
-local function resolveGoru()
-    if type(getgenv().GoruCore) == "table" then
-        return getgenv().GoruCore
-    end
-
-    local ok, result = pcall(function()
-        return loadstring(game:HttpGet(GORU_URL))()
-    end)
-
-    if ok then
-        if type(result) == "table" then
-            getgenv().GoruCore = result
-            return result
-        elseif type(getgenv().GoruCore) == "table" then
-            return getgenv().GoruCore
-        end
-    end
-
-    return nil
-end
-
-local Goru = resolveGoru()
-
--- Auto-hook kalau Goru.lua baru ke-load belakangan
-task.spawn(function()
-    while true do
-        if not Goru then
-            Goru = resolveGoru()
-            if Goru then
-                if State.AntiAfk and Goru.SetAntiAfk then
-                    pcall(Goru.SetAntiAfk, true)
-                end
-                if State.InstantPrompt and Goru.SetInstantPrompt then
-                    pcall(Goru.SetInstantPrompt, true)
-                end
-                if State.AutoFarm and Goru.StartFarm then
-                    pcall(Goru.StartFarm)
-                end
-            end
-        end
-        task.wait(0.5)
-    end
-end)
-
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
-
+-- 2. Buat Jendela Panel Utama & Menu
 local Window = WindUI:CreateWindow({
     Title = "Keren Hub",
     Icon = "gravity:sparkles-fill",
@@ -78,13 +35,12 @@ local Window = WindUI:CreateWindow({
     }
 })
 
--- 1. Tab Stats
+-- Tab biasa langsung di Window
 local StatsTab = Window:Tab({
     Title = "Stats",
     Icon = "gravity:chart-mixed"
 })
 
--- 2. Tab Main
 local MainTab = Window:Tab({
     Title = "Main",
     Icon = "gravity:play"
@@ -93,20 +49,21 @@ local MainTab = Window:Tab({
 MainTab:Toggle({
     Title = "Auto Farm Barista",
     Desc = "Otomatis jalan & proses order berdasarkan status UI (NPC / Brewing / Order / Good)",
-    Value = State.AutoFarm,
-    Callback = function(Value)
-        State.AutoFarm = Value
-        Goru = Goru or resolveGoru()
-        if Value then
-            if Goru and Goru.StartFarm then
-                Goru.StartFarm()
-            else
-                warn("[Gure.lua] Menunggu Goru.lua siap...")
-            end
-        else
-            if Goru and Goru.StopFarm then
-                Goru.StopFarm()
-            end
+    Value = false,
+    Callback = function(state)
+        State.AutoFarm = state
+        local core = getgenv().GoruCore
+
+        WindUI:Notify({
+            Title = "Status Bot",
+            Content = state and "Auto Farm Barista diaktifkan!" or "Auto Farm Barista dimatikan!",
+            Duration = 2
+        })
+
+        if state and core and core.StartFarm then
+            task.spawn(core.StartFarm)
+        elseif (not state) and core and core.StopFarm then
+            task.spawn(core.StopFarm)
         end
     end
 })
@@ -114,17 +71,17 @@ MainTab:Toggle({
 MainTab:Toggle({
     Title = "Instant Proximity Prompt",
     Desc = "Hilangkan hold duration prompt di sekitar",
-    Value = State.InstantPrompt,
-    Callback = function(Value)
-        State.InstantPrompt = Value
-        Goru = Goru or resolveGoru()
-        if Goru and Goru.SetInstantPrompt then
-            Goru.SetInstantPrompt(Value)
+    Value = false,
+    Callback = function(state)
+        State.InstantPrompt = state
+        local core = getgenv().GoruCore
+        if core and core.SetInstantPrompt then
+            core.SetInstantPrompt(state)
         end
     end
 })
 
--- 3. Tab Section Settings di paling bawah (isi Anti-AFK aja)
+-- Tab Section Settings di paling bawah (isi Anti-AFK aja)
 local settingsSection = Window:Section({
     Title = "Settings",
     Icon = "Solar:settings-bold",
@@ -134,12 +91,33 @@ local settingsSection = Window:Section({
 settingsSection:Toggle({
     Title = "Anti-AFK",
     Desc = "Cegah kick karena idle terlalu lama",
-    Value = State.AntiAfk,
-    Callback = function(Value)
-        State.AntiAfk = Value
-        Goru = Goru or resolveGoru()
-        if Goru and Goru.SetAntiAfk then
-            Goru.SetAntiAfk(Value)
+    Value = false,
+    Callback = function(state)
+        State.AntiAfk = state
+        local core = getgenv().GoruCore
+        if core and core.SetAntiAfk then
+            core.SetAntiAfk(state)
         end
+
+        WindUI:Notify({
+            Title = "Settings",
+            Content = state and "Anti-AFK aktif!" or "Anti-AFK nonaktif!",
+            Duration = 2
+        })
     end
 })
+
+WindUI:Notify({
+    Title = "UI Berhasil Dimuat",
+    Content = "Menghubungkan logika Goru...",
+    Duration = 2
+})
+
+-- 3. Tarik dan jalankan file logika bot (Goru.lua) secara otomatis di baliknya
+local success, err = pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/nytui/Goru/refs/heads/main/Goru.lua"))()
+end)
+
+if not success then
+    warn("[Keren Hub] Gagal memuat file logika Goru: " .. tostring(err))
+end
