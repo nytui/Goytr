@@ -66,7 +66,7 @@ MainTab:Toggle({
 
 local settingsSection = Window:Section({
     Title = "Settings",
-    Icon = "Solar:settings-bold",
+    Icon = "gravity:gear",
     Opened = true,
 })
 
